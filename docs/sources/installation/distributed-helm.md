@@ -2,9 +2,9 @@
 title: Helm
 weight: 20
 ---
-# Install Grafana Loki with Helm
+# Install Distributed Deployment of Grafana Loki with Helm
 
-The Helm installation runs the Grafana Loki cluster as a single binary.
+The Helm installation runs the Grafana Loki cluster as distributed microservices.
 
 ## Prerequisites
 
@@ -27,38 +27,19 @@ helm repo update
 ### Deploy with default configuration
 
 ```bash
-helm upgrade --install loki grafana/loki-stack
+helm upgrade --install loki grafana/loki-distributed
 ```
 
 ### Deploy in a custom namespace
 
 ```bash
-helm upgrade --install loki --namespace=loki grafana/loki
+helm upgrade --install loki --namespace=loki grafana/loki-distributed
 ```
 
 ### Deploy with custom configuration
 
 ```bash
-helm upgrade --install loki grafana/loki --set "key1=val1,key2=val2,..."
-```
-
-### Deploy Loki Stack (Loki, Promtail, Grafana, Prometheus)
-
-```bash
-helm upgrade --install loki grafana/loki-stack  --set grafana.enabled=true,prometheus.enabled=true,prometheus.alertmanager.persistentVolume.enabled=false,prometheus.server.persistentVolume.enabled=false
-```
-
-### Deploy Loki Stack (Loki, Promtail, Grafana, Prometheus) with persistent volume claim
-
-```bash
-helm upgrade --install loki grafana/loki-stack  --set grafana.enabled=true,prometheus.enabled=true,prometheus.alertmanager.persistentVolume.enabled=false,prometheus.server.persistentVolume.enabled=false,loki.persistence.enabled=true,loki.persistence.storageClassName=standard,loki.persistence.size=5Gi
-```
-
-### Deploy Loki Stack (Loki, Fluent Bit, Grafana, Prometheus)
-
-```bash
-helm upgrade --install loki grafana/loki-stack \
-  --set fluent-bit.enabled=true,promtail.enabled=false,grafana.enabled=true,prometheus.enabled=true,prometheus.alertmanager.persistentVolume.enabled=false,prometheus.server.persistentVolume.enabled=false
+helm upgrade --install loki grafana/loki-distributed --set "key1=val1,key2=val2,..."
 ```
 
 ## Deploy Grafana to your cluster
@@ -83,7 +64,8 @@ kubectl port-forward --namespace <YOUR-NAMESPACE> service/loki-grafana 3000:80
 
 Navigate to `http://localhost:3000` and login with `admin` and the password
 output above. Then follow the [instructions for adding the Loki Data Source](../../getting-started/grafana/), using the URL
-`http://loki:3100/` for Loki.
+`http://<helm-installation-name>-gateway.<namespace>.svc.cluster.local/` for Loki 
+(with `<helm-installation-name>` and `<namespace>` replaced by the installation and namespace, respectively, of your deployment).
 
 ## Run Loki behind HTTPS ingress
 
@@ -100,29 +82,12 @@ loki:
   password: pass
 ```
 
-Sample Helm template for Ingress:
+In the `values.yaml` file you passed to the helm chart, add:
 
 ```yaml
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  annotations:
-    kubernetes.io/ingress.class: {{ .Values.ingress.class }}
-    ingress.kubernetes.io/auth-type: "basic"
-    ingress.kubernetes.io/auth-secret: {{ .Values.ingress.basic.secret }}
-  name: loki
-spec:
-  rules:
-  - host: {{ .Values.ingress.host }}
-    http:
-      paths:
-      - backend:
-          serviceName: loki
-          servicePort: 3100
-  tls:
-  - secretName: {{ .Values.ingress.cert }}
-    hosts:
-    - {{ .Values.ingress.host }}
+gateway:
+  ingress:
+    enabled: true
 ```
 
 ## Run Promtail with syslog support
